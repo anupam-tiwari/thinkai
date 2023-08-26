@@ -10,3 +10,4 @@ __pycache__/
 # data folder
 data/
 summaries.json
+settings.json
