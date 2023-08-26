@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 import constants as cts
 from get_docs import GetDocuments as get_docs
-from get_nearest_links import GetNearestLinks
+from get_relevant_text import GetRelevantText
 import openai
 from langchain.chat_models import ChatOpenAI, ChatAnthropic
 from langchain.schema import SystemMessage, HumanMessage
@@ -61,14 +61,8 @@ def get_word_length(word: str) -> int:
 @tool
 def get_info_on_philosophy(query: str) -> str:
     """Returns info relevant Philosophy"""
-    # get top 3 results for query
-    gnl = GetNearestLinks(query)
-    top_links = gnl.get_links()
-
-    # get docs from summaries json
-    top_docs = get_docs(top_links).get_documents()
-    # concatenate all summaries
-    prompt_text = "\n".join([doc["summary"] for doc in top_docs])
+    grt = GetRelevantText(query)
+    prompt_text = grt.get_relevant_text()
 
     return prompt_text
 
