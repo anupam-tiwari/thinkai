@@ -8,7 +8,7 @@ import openai
 from langchain.chat_models import ChatOpenAI, ChatAnthropic
 from langchain.schema import SystemMessage, HumanMessage
 from langchain.agents import OpenAIFunctionsAgent
-from langchain.agents import tool
+from langchain.tools import BaseTool, StructuredTool, Tool, tool
 from langchain.agents import AgentExecutor
 from streamlit_chat import message
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
@@ -30,12 +30,12 @@ llm = ChatOpenAI(
 )
 
 system_message1 = SystemMessage(
-    content="You are atheist and your name is agent1, Strictly reply with your name and response and keep it in one sentence and act as agent1"
+    content="You are atheist and your name is agent1, Strictly reply with your name and response and keep it in one sentence and act as agent1, use get_info_on_philosophy() function to answer and keep on debating"
 )
 prompt1 = OpenAIFunctionsAgent.create_prompt(system_message=system_message1)
 
 system_message2 = SystemMessage(
-    content="You are religious and your name is agent2, Strictly reply with your name and response and keep it in one sentence and act as agent2"
+    content="You are religious and your name is agent2, Strictly reply with your name and response and keep it in one sentence and act as agent2, use get_info_on_philosophy() function to answer and keep on debating"
 )
 prompt2 = OpenAIFunctionsAgent.create_prompt(system_message=system_message2)
 
@@ -55,7 +55,7 @@ def tool2() -> int:
 @tool
 def get_word_length(word: str) -> int:
     """Returns the length of a word."""
-    return len(word)
+    return len(word) +1
 
 
 @tool
@@ -73,7 +73,13 @@ def get_info_on_philosophy(query: str) -> str:
     return prompt_text
 
 
-tools = [get_info_on_philosophy]
+tools = [
+    Tool(
+            name = "Search",
+            func=get_info_on_philosophy,
+            description="use this tool when you need to get info on Philosophy"
+        ),
+]
 
 agent1 = OpenAIFunctionsAgent(llm=llm, tools=tools, prompt=prompt1)
 agent2 = OpenAIFunctionsAgent(llm=llm, tools=tools, prompt=prompt2)
@@ -81,7 +87,10 @@ agent2 = OpenAIFunctionsAgent(llm=llm, tools=tools, prompt=prompt2)
 agents = [agent1, agent2]
 
 
-class GetResponse:
+class GetResponse(BaseTool):
+    name = "Philosophy"
+    description = "use this tool when you need to get info on Philosophy"
+      
     def __init__(self, query: str = None):
         self.query = query
         self.prompt_text = None
@@ -155,19 +164,18 @@ if prompt := st.chat_input("What is up?"):
     with st.chat_message("user"):
         st.markdown(prompt)
         st.session_state.prompts += str(" user: " + prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
-
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        
     while True:
         words = st.session_state.prompts.split()
-        if len(words) > 500:
-            st.session_state.prompts = "".joint(words[-200:])
+        if len(words) > 200:
+            st.session_state.prompts = "".join(words[-200:])
 
         with st.chat_message("ai", avatar="🦖"):
             message_placeholder = st.empty()
             full_response = ""
             agent_executor = AgentExecutor(agent=agent1, tools=tools, verbose=False)
             for response in agent_executor.run(st.session_state.prompts):
-                # full_response += response.choices[0].delta.get("content", "")
                 full_response += response
                 message_placeholder.markdown(response + "▌")
             message_placeholder.markdown(full_response)
@@ -181,7 +189,6 @@ if prompt := st.chat_input("What is up?"):
             full_response = ""
             agent_executor = AgentExecutor(agent=agent2, tools=tools, verbose=False)
             for response in agent_executor.run(st.session_state.prompts):
-                # full_response += response.choices[0].delta.get("content", "")
                 full_response += response
                 message_placeholder.markdown(response + "▌")
             message_placeholder.markdown(full_response)
@@ -189,3 +196,5 @@ if prompt := st.chat_input("What is up?"):
         st.session_state.messages.append({"role": "agent2", "content": full_response})
 
         time.sleep(1)
+        
+        
