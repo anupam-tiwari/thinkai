@@ -5,7 +5,7 @@ import constants as cts
 from get_docs import GetDocuments as get_docs
 from get_nearest_links import GetNearestLinks
 import openai
-from langchain.chat_models import ChatOpenAI
+from langchain.chat_models import ChatOpenAI,ChatAnthropic
 from langchain.schema import SystemMessage, HumanMessage
 from langchain.agents import OpenAIFunctionsAgent
 from langchain.agents import tool
@@ -18,15 +18,15 @@ from langchain.schema import HumanMessage
 import streamlit as st
 import time
 
-import streamlit as st
+st.title("LLM friends")
 
+llm = ChatOpenAI(temperature=0,streaming=True, callbacks=[StreamingStdOutCallbackHandler()], openai_api_key=)
+#llm = ChatAnthropic(model="claude-2", temperature=0,streaming=True, callbacks=[StreamingStdOutCallbackHandler()],  anthropic_api_key="sk-Oyk86u0hARcs3oWYghev6_LP7ucQv6jEAQmJuy3acJCsEY-9iQaZDYkeksIJ2yHaf2IW6JS4C9eDSvWLaFgtpg")
 
-llm = ChatOpenAI(temperature=0,streaming=True, callbacks=[StreamingStdOutCallbackHandler()], openai_api_key='')
-
-system_message1 = SystemMessage(content="You are atheist and your name is agent1, Strictly reply with your name and response and keep it in one sentence")
+system_message1 = SystemMessage(content= "You are atheist and your name is agent1, Strictly reply with your name and response and keep it in one sentence and act as agent1")
 prompt1 = OpenAIFunctionsAgent.create_prompt(system_message=system_message1)
 
-system_message2 = SystemMessage(content="You are religious and your name is agent2, Strictly reply with your name and response and keep it in one sentence")
+system_message2 = SystemMessage(content= "You are religious and your name is agent2, Strictly reply with your name and response and keep it in one sentence and act as agent2")
 prompt2 = OpenAIFunctionsAgent.create_prompt(system_message=system_message2)
 
 @tool
@@ -47,7 +47,7 @@ def get_word_length(word: str) -> int:
 @tool
 def get_info_on_philosophy(query:str) -> str:
     """Returns info relevant Philosophy"""
-        # get top 3 results for query        
+    # get top 3 results for query        
     gnl = GetNearestLinks(query)
     top_links = gnl.get_links()
                 
@@ -55,24 +55,11 @@ def get_info_on_philosophy(query:str) -> str:
     top_docs = get_docs(top_links).get_documents()
         # concatenate all summaries
     prompt_text = '\n'.join([doc['summary'] for doc in top_docs])
-        
-        # # form prompt for openai
-        # prompt_template = f"""Use the below extract from articles on Philosophy to provide a summary in simple terms. Mould your summary to answer the subsequent question. 
-        
-        # Start your response with "According to articles published by Stanford Encyclopedia of Philosphy". 
-        
-        # If a summary cannot be provided, write "I don't know."
-
-        # Extract:
-        # \"\"\"
-        # {self.prompt_text}
-        # \"\"\"
-        # Question: {self.query}"""
 
     return prompt_text
     
 
-tools = [tool1, tool2, get_info_on_philosophy]
+tools = [get_info_on_philosophy]
 
 agent1 = OpenAIFunctionsAgent(llm=llm, tools=tools, prompt=prompt1)
 agent2 = OpenAIFunctionsAgent(llm=llm, tools=tools, prompt=prompt2)
@@ -145,7 +132,7 @@ st.session_state.setdefault(
     'prompts', ''
 )
 
-st.title("LLM friends")
+
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
