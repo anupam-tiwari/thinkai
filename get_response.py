@@ -6,20 +6,27 @@ from get_docs import GetDocuments as get_docs
 from get_nearest_links import GetNearestLinks
 import openai
 from langchain.chat_models import ChatOpenAI
-from langchain.schema import SystemMessage
+from langchain.schema import SystemMessage, HumanMessage
 from langchain.agents import OpenAIFunctionsAgent
 from langchain.agents import tool
 from langchain.agents import AgentExecutor
+from streamlit_chat import message
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain.callbacks.base import BaseCallbackHandler
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage
+import streamlit as st
+import time
 
 import streamlit as st
 
 
-llm = ChatOpenAI(temperature=0, openai_api_key='')
+llm = ChatOpenAI(temperature=0,streaming=True, callbacks=[StreamingStdOutCallbackHandler()], openai_api_key='')
 
-system_message1 = SystemMessage(content="You are atheist and your name is agent1 and you in debate with agent2 and user, keep conversation sort")
+system_message1 = SystemMessage(content="You are atheist and your name is agent1, Strictly reply with your name and response and keep it in one sentence")
 prompt1 = OpenAIFunctionsAgent.create_prompt(system_message=system_message1)
 
-system_message2 = SystemMessage(content="You are religious and your name is agent2 and you in debate with agent1 and user, keep conversation sort")
+system_message2 = SystemMessage(content="You are religious and your name is agent2, Strictly reply with your name and response and keep it in one sentence")
 prompt2 = OpenAIFunctionsAgent.create_prompt(system_message=system_message2)
 
 @tool
@@ -72,11 +79,6 @@ agent2 = OpenAIFunctionsAgent(llm=llm, tools=tools, prompt=prompt2)
 
 agents = [agent1, agent2]
 
-
-
-# agent_executor = AgentExecutor(agent=agents, verbose=True)
-
-# agent_executor.run("how many letters in the word educa?")
 
 class GetResponse:
     def __init__(self, query: str=None):
@@ -137,32 +139,59 @@ class GetResponse:
         )
         answer = openai_response['choices'][0]['message']['content']        
         return answer
-    
-if __name__ == "__main__":
-    # user_query = input("Hello, Welcome to ThinkAI. This is Nomí, ask me a question: ")
-    print("Hello welcome to debate!")
-    prompt = ''
-    user_query = input()
-    prompt+= str(' user: '+user_query)
-    while True:
-        agent_executor = AgentExecutor(agent=agent1, tools=tools, verbose=False)
-        reponse1 = agent_executor.run(prompt)
-        prompt+= str(reponse1)
-        print(reponse1)
-        agent_executor = AgentExecutor(agent=agent2, tools=tools, verbose=False)
-        reponse2 = agent_executor.run(prompt)
-        prompt+= str(reponse2)
-        print(reponse2)
-        # user_query = input()
-        # prompt+= str(' user: '+user_query)
-        if user_query == "":
-            break
-    
-    
 
-user = st.chat_input("Say something")
-if user:
-    st.write(f"User has sent the following prompt: {user}")
-    # gr = GetResponse(user_query)
-    # agent_executor.run("how many letters in the word educa?")
-    # print(gr.get_response())
+
+st.session_state.setdefault(
+    'prompts', ''
+)
+
+st.title("LLM friends")
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+    
+if prompt := st.chat_input("What is up?"):
+    
+    with st.chat_message("user"):
+        st.markdown(prompt)
+        st.session_state.prompts+= str(' user: '+prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    while True:
+        words = st.session_state.prompts.split()
+        if len(words) > 500: 
+            st.session_state.prompts = "".joint(words[-200:])
+                
+        with st.chat_message("ai",avatar='🦖'):
+            message_placeholder = st.empty()
+            full_response = ""
+            agent_executor = AgentExecutor(agent=agent1, tools=tools, verbose=False)
+            for response in agent_executor.run(st.session_state.prompts):
+                # full_response += response.choices[0].delta.get("content", "")
+                full_response += response
+                message_placeholder.markdown(response + "▌")
+            message_placeholder.markdown(full_response)
+            st.session_state.prompts+= str(" "+full_response)
+        st.session_state.messages.append({"role": "agent1", "content": full_response})
+        
+        time.sleep(1)
+        
+        with st.chat_message("ai",avatar='🧑‍💻'):
+            message_placeholder = st.empty()
+            full_response = ""
+            agent_executor = AgentExecutor(agent=agent2, tools=tools, verbose=False)
+            for response in agent_executor.run(st.session_state.prompts):
+                # full_response += response.choices[0].delta.get("content", "")
+                full_response += response
+                message_placeholder.markdown(response + "▌")
+            message_placeholder.markdown(full_response)
+            st.session_state.prompts+= str(" "+full_response)
+        st.session_state.messages.append({"role": "agent2", "content": full_response})
+        
+        time.sleep(1)
+        
+
